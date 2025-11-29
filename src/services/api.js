@@ -56,4 +56,10 @@ export const configApi = {
     updateProfitMargin: (percentage) => api.put(`/config/profit-margin?percentage=${percentage}`),
 };
 
+export const bestProductsApi = {
+    getAll: () => api.post('/best/get-products'),
+    add: (id) => api.post(`/best/admin/set-products/${id}`),
+    remove: (id) => api.post(`/best/admin/delete/${id}`),
+};
+
 export default api;

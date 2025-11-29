@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { productsApi, categoriesApi, IMAGE_SERVER_URL } from '../services/api';
+import { productsApi, categoriesApi, bestProductsApi, IMAGE_SERVER_URL } from '../services/api';
 import { Table } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Plus, Trash2, Edit, Download, ExternalLink, RefreshCw, Package } from 'lucide-react';
+import { Plus, Trash2, Edit, Download, ExternalLink, RefreshCw, Package, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Products = () => {
@@ -15,6 +15,7 @@ const Products = () => {
     const [importing, setImporting] = useState(false);
     const [updating, setUpdating] = useState(false);
     const [productImages, setProductImages] = useState({});
+    const [bestProductIds, setBestProductIds] = useState(new Set());
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
@@ -30,12 +31,16 @@ const Products = () => {
 
     const loadData = async () => {
         try {
-            const [productsRes, categoriesRes] = await Promise.all([
+            const [productsRes, categoriesRes, bestProductsRes] = await Promise.all([
                 productsApi.getAll(),
-                categoriesApi.getAll()
+                categoriesApi.getAll(),
+                bestProductsApi.getAll()
             ]);
             setProducts(productsRes.data);
             setCategories(categoriesRes.data);
+
+            const bestIds = new Set(bestProductsRes.data.map(p => p.id));
+            setBestProductIds(bestIds);
 
             // Load images for all products
             loadProductImages(productsRes.data);
@@ -78,6 +83,26 @@ const Products = () => {
                 console.error('Failed to delete product', error);
                 alert('Failed to delete product');
             }
+        }
+    };
+
+    const handleToggleBestProduct = async (product) => {
+        const isBest = bestProductIds.has(product.id);
+        try {
+            if (isBest) {
+                await bestProductsApi.remove(product.id);
+                const newBest = new Set(bestProductIds);
+                newBest.delete(product.id);
+                setBestProductIds(newBest);
+            } else {
+                await bestProductsApi.add(product.id);
+                const newBest = new Set(bestProductIds);
+                newBest.add(product.id);
+                setBestProductIds(newBest);
+            }
+        } catch (error) {
+            console.error('Failed to toggle best product', error);
+            alert('Failed to update best product status');
         }
     };
 
@@ -298,6 +323,13 @@ const Products = () => {
                                         title="Edit"
                                     >
                                         <Edit size={18} />
+                                    </button>
+                                    <button
+                                        className={`p-2 hover:bg-zinc-800 rounded-lg transition-colors ${bestProductIds.has(product.id) ? 'text-yellow-400' : 'text-zinc-600 hover:text-yellow-400'}`}
+                                        onClick={() => handleToggleBestProduct(product)}
+                                        title={bestProductIds.has(product.id) ? "Remove from Best Products" : "Add to Best Products"}
+                                    >
+                                        <Star size={18} fill={bestProductIds.has(product.id) ? "currentColor" : "none"} />
                                     </button>
                                     <button
                                         className="p-2 hover:bg-red-500/10 rounded-lg text-red-400 transition-colors"
