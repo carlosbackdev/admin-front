@@ -57,7 +57,7 @@ export const configApi = {
 };
 
 export const bestProductsApi = {
-    getAll: () => api.post('/best/get-products'),
+    getAll: () => api.get('/best/get-products'),
     add: (id) => api.post(`/best/admin/set-products/${id}`),
     remove: (id) => api.post(`/best/admin/delete/${id}`),
 };
