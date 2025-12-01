@@ -62,4 +62,26 @@ export const bestProductsApi = {
     remove: (id) => api.post(`/best/admin/delete/${id}`),
 };
 
+export const bannersApi = {
+    getAll: () => api.get('/home-banners/get'),
+    create: (data) => api.post('/home-banners/admin/create', data),
+    update: (data) => api.put('/home-banners/admin/update', data),
+    delete: (id) => api.delete(`/home-banners/admin/delete/${id}`),
+};
+
+// Upload API for images
+export const uploadApi = {
+    uploadImage: async (file) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch(`${IMAGE_SERVER_URL}/api/upload/image`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        return response.json();
+    }
+};
+
 export default api;

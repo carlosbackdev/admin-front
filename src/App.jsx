@@ -8,6 +8,7 @@ import Categories from './pages/Categories';
 import Orders from './pages/Orders';
 import Tracking from './pages/Tracking';
 import Settings from './pages/Settings';
+import Banners from './pages/Banners';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="categories" element={<Categories />} />
         <Route path="orders" element={<Orders />} />
         <Route path="tracking" element={<Tracking />} />
+        <Route path="banners" element={<Banners />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

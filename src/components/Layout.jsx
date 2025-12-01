@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Package, Tags, ShoppingCart, Truck, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, ShoppingCart, Truck, Settings, LogOut, Image } from 'lucide-react';
 
 const Sidebar = () => {
     const navItems = [
@@ -9,6 +9,7 @@ const Sidebar = () => {
         { icon: Tags, label: 'Categories', path: '/categories' },
         { icon: ShoppingCart, label: 'Orders', path: '/orders' },
         { icon: Truck, label: 'Tracking', path: '/tracking' },
+        { icon: Image, label: 'Banners', path: '/banners' },
         { icon: Settings, label: 'Settings', path: '/settings' },
     ];
 
