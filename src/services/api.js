@@ -69,17 +69,25 @@ export const bannersApi = {
     delete: (id) => api.delete(`/home-banners/admin/delete/${id}`),
 };
 
+export const blogApi = {
+    getAll: () => api.get('/blog/get/all'),
+    getById: (id) => api.get(`/blog/get/${id}`),
+    create: (data) => api.post('/blog/admin/create', data),
+    update: (data) => api.put('/blog/admin/update', data),
+    delete: (id) => api.delete(`/blog/admin/delete/${id}`),
+};
+
 // Upload API for images
 export const uploadApi = {
     uploadImage: async (file) => {
         const formData = new FormData();
         formData.append('image', file);
-        
+
         const response = await fetch(`${IMAGE_SERVER_URL}/api/upload/image`, {
             method: 'POST',
             body: formData
         });
-        
+
         return response.json();
     }
 };

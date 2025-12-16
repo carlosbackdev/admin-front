@@ -10,6 +10,7 @@ const Sidebar = () => {
         { icon: ShoppingCart, label: 'Orders', path: '/orders' },
         { icon: Truck, label: 'Tracking', path: '/tracking' },
         { icon: Image, label: 'Banners', path: '/banners' },
+        { icon: LayoutDashboard, label: 'Blog', path: '/blog' },
         { icon: Settings, label: 'Settings', path: '/settings' },
     ];
 

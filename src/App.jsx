@@ -9,6 +9,7 @@ import Orders from './pages/Orders';
 import Tracking from './pages/Tracking';
 import Settings from './pages/Settings';
 import Banners from './pages/Banners';
+import Blog from './pages/Blog';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="orders" element={<Orders />} />
         <Route path="tracking" element={<Tracking />} />
         <Route path="banners" element={<Banners />} />
+        <Route path="blog" element={<Blog />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
