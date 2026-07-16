@@ -1,35 +1,56 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { productsApi, categoriesApi } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Cpu, AlertTriangle } from 'lucide-react';
+
+const PRODUCT_STATUSES = [
+    { value: 'DRAFT', label: 'Borrador', help: 'Solo visible en el panel de administración.' },
+    { value: 'COMING_SOON', label: 'Próximamente', help: 'Visible en la web, pero todavía no se puede comprar.' },
+    { value: 'AVAILABLE', label: 'Disponible', help: 'Se puede comprar si tiene precio y stock.' },
+    { value: 'OUT_OF_STOCK', label: 'Sin stock', help: 'Visible en la web, con la compra bloqueada.' },
+    { value: 'ARCHIVED', label: 'Archivado', help: 'Oculto para clientes.' },
+];
+
+const createInitialData = (isOnboardTemplate) => ({
+    name: isOnboardTemplate ? 'Ordenador de a bordo MotoGear' : '',
+    sku: isOnboardTemplate ? 'MG-OBD-KAWASAKI-V1' : '',
+    slug: isOnboardTemplate ? 'ordenador-bordo-kawasaki' : '',
+    status: 'DRAFT',
+    stockQuantity: 0,
+    lowStockThreshold: 5,
+    details: isOnboardTemplate
+        ? 'Ordenador de a bordo para telemetría y diagnóstico de motocicletas Kawasaki.'
+        : '',
+    specifications: '',
+    keywords: isOnboardTemplate
+        ? 'ordenador de a bordo, Kawasaki, KDS, KWP2000, telemetría, diagnóstico, DTC'
+        : '',
+    basePrice: 0,
+    originalPrice: 0,
+    sellPrice: 0,
+    discount: 0,
+    currency: 'EUR',
+    shippingCost: 0,
+    deliveryEstimateDays: '',
+    deliveryMinDate: '',
+    deliveryMaxDate: '',
+    variants: '',
+    sellerName: isOnboardTemplate ? 'MotoGear' : '',
+    externalId: '',
+    sourceUrl: '',
+    category: '',
+});
 
 const ProductForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const isEdit = !!id;
+    const isOnboardTemplate = !isEdit && searchParams.get('template') === 'onboard';
 
-    const [formData, setFormData] = useState({
-        name: '',
-        details: '',
-        specifications: '',
-        keywords: '',
-        basePrice: 0,
-        originalPrice: 0,
-        sellPrice: 0,
-        discount: 0,
-        currency: 'USD',
-        shippingCost: 0,
-        deliveryEstimateDays: '',
-        deliveryMinDate: '',
-        deliveryMaxDate: '',
-        variants: '',
-        sellerName: '',
-        externalId: '',
-        sourceUrl: '',
-        category: 0,
-    });
+    const [formData, setFormData] = useState(() => createInitialData(isOnboardTemplate));
 
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -63,18 +84,27 @@ const ProductForm = () => {
                 productData.deliveryMaxDate = productData.deliveryMaxDate.split('T')[0];
             }
 
-            setFormData(productData);
+            setFormData({
+                ...createInitialData(false),
+                ...productData,
+                status: productData.status || 'DRAFT',
+                stockQuantity: productData.stockQuantity ?? 0,
+                lowStockThreshold: productData.lowStockThreshold ?? 5,
+            });
         } catch (error) {
             console.error('Failed to load product', error);
-            alert('Failed to load product details');
+            alert('No se han podido cargar los datos del producto');
         }
     };
 
     const handleChange = (e) => {
         const { name, value, type } = e.target;
+        const integerFields = ['stockQuantity', 'lowStockThreshold', 'discount', 'category'];
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'number' ? parseFloat(value) || 0 : value
+            [name]: type === 'number'
+                ? (integerFields.includes(name) ? parseInt(value, 10) || 0 : parseFloat(value) || 0)
+                : value
         }));
     };
 
@@ -90,15 +120,16 @@ const ProductForm = () => {
 
             if (isEdit) {
                 await productsApi.update({ ...submitData, id: parseInt(id) });
-                alert('Product updated successfully');
+                alert('Producto actualizado correctamente');
             } else {
                 await productsApi.create(submitData);
-                alert('Product created successfully');
+                alert('Producto creado correctamente');
             }
             navigate('/products');
         } catch (error) {
             console.error('Failed to save product', error);
-            alert('Failed to save product');
+            const message = error.response?.data?.detail || error.response?.data?.message || 'No se ha podido guardar el producto';
+            alert(message);
         } finally {
             setLoading(false);
         }
@@ -113,16 +144,108 @@ const ProductForm = () => {
                 >
                     <ArrowLeft size={24} />
                 </button>
-                <h1>{isEdit ? 'Edit Product' : 'New Product'}</h1>
+                <div>
+                    <h1 className="mb-1">{isEdit ? 'Editar producto' : 'Nuevo producto'}</h1>
+                    <p className="text-sm text-zinc-500">
+                        {isOnboardTemplate ? 'Plantilla preparada para el ordenador de a bordo MotoGear' : 'Ficha comercial e inventario'}
+                    </p>
+                </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Commercial status and inventory */}
+                <Card className="border-orange-500/25 bg-orange-500/[0.04]">
+                    <div className="mb-5 flex items-start justify-between gap-4">
+                        <div>
+                            <h3 className="flex items-center gap-2 text-lg font-semibold text-zinc-100">
+                                <Cpu size={20} className="text-orange-500" />
+                                Publicación e inventario
+                            </h3>
+                            <p className="mt-1 text-sm text-zinc-500">Controla cuándo aparece en la web y cuándo se puede comprar.</p>
+                        </div>
+                        <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-400">
+                            {PRODUCT_STATUSES.find(item => item.value === formData.status)?.label}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-slate-400">Estado comercial *</label>
+                            <select name="status" value={formData.status} onChange={handleChange} className="select" required>
+                                {PRODUCT_STATUSES.map(status => (
+                                    <option key={status.value} value={status.value}>{status.label}</option>
+                                ))}
+                            </select>
+                            <p className="mt-2 text-xs text-zinc-500">
+                                {PRODUCT_STATUSES.find(item => item.value === formData.status)?.help}
+                            </p>
+                        </div>
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-slate-400">SKU / referencia interna</label>
+                            <input
+                                type="text"
+                                name="sku"
+                                value={formData.sku || ''}
+                                onChange={handleChange}
+                                className="input font-mono uppercase"
+                                placeholder="MG-OBD-KAWASAKI-V1"
+                                required={formData.status === 'AVAILABLE'}
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-slate-400">Slug de la web</label>
+                            <input
+                                type="text"
+                                name="slug"
+                                value={formData.slug || ''}
+                                onChange={handleChange}
+                                className="input font-mono"
+                                placeholder="ordenador-bordo-kawasaki"
+                            />
+                            <p className="mt-2 text-xs text-zinc-500">Se genera desde el nombre si lo dejas vacío.</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-slate-400">Stock actual</label>
+                                <input
+                                    type="number"
+                                    name="stockQuantity"
+                                    value={formData.stockQuantity}
+                                    onChange={handleChange}
+                                    className="input font-mono"
+                                    min="0"
+                                    step="1"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-slate-400">Avisar con</label>
+                                <input
+                                    type="number"
+                                    name="lowStockThreshold"
+                                    value={formData.lowStockThreshold}
+                                    onChange={handleChange}
+                                    className="input font-mono"
+                                    min="0"
+                                    step="1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {formData.status === 'AVAILABLE' && (formData.stockQuantity <= 0 || formData.sellPrice <= 0 || !formData.sku) && (
+                        <div className="mt-5 flex gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+                            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                            Para publicar como disponible debes indicar SKU, precio de venta y al menos una unidad de stock.
+                        </div>
+                    )}
+                </Card>
+
                 {/* Basic Information */}
                 <Card>
-                    <h3 className="text-lg font-semibold mb-4 text-zinc-200">Basic Information</h3>
+                    <h3 className="text-lg font-semibold mb-4 text-zinc-200">Información del producto</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Name *</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Nombre *</label>
                             <input
                                 type="text"
                                 name="name"
@@ -134,7 +257,7 @@ const ProductForm = () => {
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Details</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Descripción</label>
                             <textarea
                                 name="details"
                                 value={formData.details || ''}
@@ -145,31 +268,31 @@ const ProductForm = () => {
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Specifications</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Especificaciones</label>
                             <textarea
                                 name="specifications"
                                 value={formData.specifications || ''}
                                 onChange={handleChange}
                                 className="input min-h-[80px]"
                                 rows="3"
-                                placeholder="Technical specifications, features, etc."
+                                placeholder="JSON o texto con especificaciones técnicas"
                             />
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Keywords</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Palabras clave</label>
                             <input
                                 type="text"
                                 name="keywords"
                                 value={formData.keywords || ''}
                                 onChange={handleChange}
                                 className="input"
-                                placeholder="Comma-separated keywords for search"
+                                placeholder="Separadas por comas"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Category *</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Categoría *</label>
                             <select
                                 name="category"
                                 value={formData.category}
@@ -177,7 +300,7 @@ const ProductForm = () => {
                                 className="select"
                                 required
                             >
-                                <option value="">Select Category</option>
+                                <option value="">Selecciona una categoría</option>
                                 {categories.map(cat => (
                                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                                 ))}
@@ -185,14 +308,14 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Variants</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Variantes</label>
                             <input
                                 type="text"
                                 name="variants"
                                 value={formData.variants || ''}
                                 onChange={handleChange}
                                 className="input"
-                                placeholder="e.g., Color: Red, Blue; Size: S, M, L"
+                                placeholder="Opcional"
                             />
                         </div>
                     </div>
@@ -200,10 +323,11 @@ const ProductForm = () => {
 
                 {/* Pricing */}
                 <Card>
-                    <h3 className="text-lg font-semibold mb-4 text-zinc-200">Pricing</h3>
+                    <h3 className="text-lg font-semibold mb-1 text-zinc-200">Precio</h3>
+                    <p className="mb-5 text-sm text-zinc-500">Puedes dejarlo a cero mientras el producto sea borrador o próximamente.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Base Price</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Coste / precio base</label>
                             <input
                                 type="number"
                                 name="basePrice"
@@ -216,7 +340,7 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Original Price</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Precio anterior</label>
                             <input
                                 type="number"
                                 name="originalPrice"
@@ -229,7 +353,7 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Sell Price *</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Precio de venta {formData.status === 'AVAILABLE' && '*'}</label>
                             <input
                                 type="number"
                                 name="sellPrice"
@@ -238,12 +362,12 @@ const ProductForm = () => {
                                 className="input"
                                 step="0.01"
                                 min="0"
-                                required
+                                required={formData.status === 'AVAILABLE'}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Discount (%)</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Descuento (%)</label>
                             <input
                                 type="number"
                                 name="discount"
@@ -256,15 +380,15 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Currency</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Moneda</label>
                             <select
                                 name="currency"
                                 value={formData.currency}
                                 onChange={handleChange}
                                 className="select"
                             >
-                                <option value="USD">USD</option>
                                 <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
                                 <option value="GBP">GBP</option>
                                 <option value="JPY">JPY</option>
                                 <option value="CNY">CNY</option>
@@ -275,10 +399,10 @@ const ProductForm = () => {
 
                 {/* Shipping & Delivery */}
                 <Card>
-                    <h3 className="text-lg font-semibold mb-4 text-zinc-200">Shipping & Delivery</h3>
+                    <h3 className="text-lg font-semibold mb-4 text-zinc-200">Envío y entrega</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Shipping Cost</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Gastos de envío</label>
                             <input
                                 type="number"
                                 name="shippingCost"
@@ -291,19 +415,19 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Delivery Estimate (Days)</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Plazo estimado</label>
                             <input
                                 type="text"
                                 name="deliveryEstimateDays"
                                 value={formData.deliveryEstimateDays || ''}
                                 onChange={handleChange}
                                 className="input"
-                                placeholder="e.g., 5-7 days"
+                                placeholder="Ej.: 5-7 días"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Delivery Min Date</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Fecha mínima de entrega</label>
                             <input
                                 type="date"
                                 name="deliveryMinDate"
@@ -314,7 +438,7 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Delivery Max Date</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Fecha máxima de entrega</label>
                             <input
                                 type="date"
                                 name="deliveryMaxDate"
@@ -328,10 +452,10 @@ const ProductForm = () => {
 
                 {/* Source Information */}
                 <Card>
-                    <h3 className="text-lg font-semibold mb-4 text-zinc-200">Source Information</h3>
+                    <h3 className="text-lg font-semibold mb-4 text-zinc-200">Información interna</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Seller Name</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Vendedor</label>
                             <input
                                 type="text"
                                 name="sellerName"
@@ -342,19 +466,19 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">External ID</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">ID externo</label>
                             <input
                                 type="text"
                                 name="externalId"
                                 value={formData.externalId || ''}
                                 onChange={handleChange}
                                 className="input"
-                                placeholder="ID from external source (e.g., AliExpress)"
+                                placeholder="ID de una fuente externa (opcional)"
                             />
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Source URL</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">URL de origen</label>
                             <input
                                 type="url"
                                 name="sourceUrl"
@@ -370,11 +494,11 @@ const ProductForm = () => {
                 {/* Form Actions */}
                 <div className="flex justify-end gap-4">
                     <Button type="button" variant="danger" onClick={() => navigate('/products')}>
-                        Cancel
+                        Cancelar
                     </Button>
                     <Button type="submit" disabled={loading}>
                         <Save size={18} />
-                        {loading ? 'Saving...' : 'Save Product'}
+                        {loading ? 'Guardando...' : 'Guardar producto'}
                     </Button>
                 </div>
             </form>
