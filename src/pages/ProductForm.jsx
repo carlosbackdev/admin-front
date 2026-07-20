@@ -33,9 +33,7 @@ const createInitialData = (isOnboardTemplate) => ({
     discount: 0,
     currency: 'EUR',
     shippingCost: 0,
-    deliveryEstimateDays: '',
-    deliveryMinDate: '',
-    deliveryMaxDate: '',
+    deliveryEstimateDays: isOnboardTemplate ? '5-7 días' : '',
     variants: '',
     sellerName: isOnboardTemplate ? 'MotoGear' : '',
     externalId: '',
@@ -76,14 +74,6 @@ const ProductForm = () => {
             const response = await productsApi.getById(id);
             const productData = response.data;
 
-            // Format dates if they exist
-            if (productData.deliveryMinDate) {
-                productData.deliveryMinDate = productData.deliveryMinDate.split('T')[0];
-            }
-            if (productData.deliveryMaxDate) {
-                productData.deliveryMaxDate = productData.deliveryMaxDate.split('T')[0];
-            }
-
             setFormData({
                 ...createInitialData(false),
                 ...productData,
@@ -114,9 +104,13 @@ const ProductForm = () => {
         try {
             const submitData = { ...formData };
 
-            // Convert empty date strings to null
-            if (!submitData.deliveryMinDate) submitData.deliveryMinDate = null;
-            if (!submitData.deliveryMaxDate) submitData.deliveryMaxDate = null;
+            const deliveryEstimate = String(submitData.deliveryEstimateDays || '').trim();
+            submitData.deliveryEstimateDays = deliveryEstimate && !/d[ií]as?/i.test(deliveryEstimate)
+                ? `${deliveryEstimate} días`
+                : deliveryEstimate;
+            // La tienda comunica un plazo relativo; se limpian las antiguas fechas absolutas.
+            submitData.deliveryMinDate = null;
+            submitData.deliveryMaxDate = null;
 
             if (isEdit) {
                 await productsApi.update({ ...submitData, id: parseInt(id) });
@@ -415,37 +409,16 @@ const ProductForm = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Plazo estimado</label>
+                            <label className="block text-sm font-medium mb-2 text-slate-400">Plazo estimado en días</label>
                             <input
                                 type="text"
                                 name="deliveryEstimateDays"
                                 value={formData.deliveryEstimateDays || ''}
                                 onChange={handleChange}
                                 className="input"
-                                placeholder="Ej.: 5-7 días"
+                                placeholder="Ej.: 5-7"
                             />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Fecha mínima de entrega</label>
-                            <input
-                                type="date"
-                                name="deliveryMinDate"
-                                value={formData.deliveryMinDate || ''}
-                                onChange={handleChange}
-                                className="input"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-2 text-slate-400">Fecha máxima de entrega</label>
-                            <input
-                                type="date"
-                                name="deliveryMaxDate"
-                                value={formData.deliveryMaxDate || ''}
-                                onChange={handleChange}
-                                className="input"
-                            />
+                            <p className="mt-2 text-xs text-zinc-500">Introduce un rango como 5-7. En la tienda se mostrará “5-7 días”, sin fechas concretas.</p>
                         </div>
                     </div>
                 </Card>

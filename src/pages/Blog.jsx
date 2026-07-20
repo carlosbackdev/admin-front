@@ -3,7 +3,46 @@ import { blogApi, uploadApi, IMAGE_SERVER_URL } from '../services/api';
 import { Table } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Plus, Trash2, Edit, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Edit, X, Upload, Image as ImageIcon, Cpu } from 'lucide-react';
+
+const ONBOARD_POST_TEMPLATE = {
+    title: 'Cómo estamos construyendo el ordenador de a bordo MotoGear',
+    slug: 'como-construimos-ordenador-bordo-motogear',
+    excerpt: 'Del conector de diagnóstico Kawasaki a una pantalla útil en marcha: contamos qué hemos validado, qué seguimos probando y cómo evoluciona el proyecto MotoGear.',
+    content: `# Cómo estamos construyendo el ordenador de a bordo MotoGear
+
+El ordenador de a bordo MotoGear nace para mostrar telemetría y diagnóstico útil en motocicletas Kawasaki que no ofrecen esa información de serie.
+
+## El punto de partida
+
+Nuestro laboratorio inicial utiliza una Kawasaki ER-6n y el conector de diagnóstico de la moto. La comunicación se realiza sobre K-Line mediante los protocolos de diagnóstico de Kawasaki.
+
+## Qué datos estamos trabajando
+
+El objetivo es mostrar de forma clara datos como:
+
+* Revoluciones del motor (RPM).
+* Velocidad y marcha engranada.
+* Posición del acelerador.
+* Temperaturas y tensión de batería.
+* Lectura y borrado de códigos de avería (DTC).
+
+## Estado del desarrollo
+
+Estamos trasladando las pruebas de laboratorio a un prototipo compacto basado en ESP32 y una interfaz K-Line dedicada. Cada función se publica como compatible solo después de validarla en una motocicleta real.
+
+## Compatibilidad
+
+La primera versión se centra en modelos Kawasaki compatibles con el sistema de diagnóstico probado. Antes de venderla publicaremos una lista concreta de modelos y años validados.
+
+## Próximos pasos
+
+Seguiremos compartiendo aquí pruebas, decisiones de diseño, nuevas motos verificadas y avances del prototipo. Si quieres colaborar con un modelo Kawasaki concreto, puedes contactar con MotoGear.`,
+    author: 'Carlos MotoGear',
+    tags: 'Ordenador de a bordo, Kawasaki, Desarrollo, Diagnóstico',
+    readTime: 6,
+    imageUrl: ''
+};
 
 const Blog = () => {
     const [posts, setPosts] = useState([]);
@@ -82,6 +121,15 @@ const Blog = () => {
         setImageFile(null);
         setImagePreview(null);
         setFormErrors({});
+    };
+
+    const handleOpenOnboardTemplate = () => {
+        setEditingPost(null);
+        setFormData(ONBOARD_POST_TEMPLATE);
+        setImageFile(null);
+        setImagePreview(null);
+        setFormErrors({});
+        setIsModalOpen(true);
     };
 
     const handleInputChange = (e) => {
@@ -201,10 +249,16 @@ const Blog = () => {
                     <h1 className="text-3xl font-bold text-white mb-2">Blog</h1>
                     <p className="text-zinc-400">Gestiona los posts del blog</p>
                 </div>
-                <Button onClick={() => handleOpenModal()}>
-                    <Plus size={20} />
-                    Nuevo Post
-                </Button>
+                <div className="flex flex-wrap justify-end gap-3">
+                    <Button variant="secondary" onClick={handleOpenOnboardTemplate}>
+                        <Cpu size={20} />
+                        Plantilla ordenador de a bordo
+                    </Button>
+                    <Button onClick={() => handleOpenModal()}>
+                        <Plus size={20} />
+                        Nuevo Post
+                    </Button>
+                </div>
             </div>
 
             <Card>
