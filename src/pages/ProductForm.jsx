@@ -8,7 +8,7 @@ import { Save, ArrowLeft, Cpu, AlertTriangle } from 'lucide-react';
 const PRODUCT_STATUSES = [
     { value: 'DRAFT', label: 'Borrador', help: 'Solo visible en el panel de administración.' },
     { value: 'COMING_SOON', label: 'Próximamente', help: 'Visible en la web, pero todavía no se puede comprar.' },
-    { value: 'AVAILABLE', label: 'Disponible', help: 'Se puede comprar si tiene precio y stock.' },
+    { value: 'AVAILABLE', label: 'Disponible', help: 'Se puede comprar si tiene precio y stock, salvo los productos DROP.' },
     { value: 'OUT_OF_STOCK', label: 'Sin stock', help: 'Visible en la web, con la compra bloqueada.' },
     { value: 'ARCHIVED', label: 'Archivado', help: 'Oculto para clientes.' },
 ];
@@ -52,6 +52,11 @@ const ProductForm = () => {
 
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
+    const hasDropTag = String(formData.keywords || '')
+        .split(/[,;]/)
+        .some(keyword => keyword.trim().toLowerCase() === 'drop');
+    const hasExternalId = Boolean(String(formData.externalId || '').trim());
+    const isDropProduct = hasExternalId || hasDropTag;
 
     useEffect(() => {
         loadCategories();
@@ -98,11 +103,29 @@ const ProductForm = () => {
         }));
     };
 
+    const handleDropChange = (enabled) => {
+        setFormData(prev => {
+            const keywords = String(prev.keywords || '')
+                .split(/[,;]/)
+                .map(keyword => keyword.trim())
+                .filter(Boolean)
+                .filter(keyword => keyword.toLowerCase() !== 'drop');
+            if (enabled) keywords.push('drop');
+            return { ...prev, keywords: keywords.join(', ') };
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
             const submitData = { ...formData };
+            if (String(submitData.externalId || '').trim() && !String(submitData.keywords || '')
+                .split(/[,;]/)
+                .some(keyword => keyword.trim().toLowerCase() === 'drop')) {
+                const keywords = String(submitData.keywords || '').trim();
+                submitData.keywords = keywords ? `${keywords}, drop` : 'drop';
+            }
 
             const deliveryEstimate = String(submitData.deliveryEstimateDays || '').trim();
             submitData.deliveryEstimateDays = deliveryEstimate && !/d[ií]as?/i.test(deliveryEstimate)
@@ -198,9 +221,29 @@ const ProductForm = () => {
                             />
                             <p className="mt-2 text-xs text-zinc-500">Se genera desde el nombre si lo dejas vacío.</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+                            <input
+                                type="checkbox"
+                                checked={isDropProduct}
+                                disabled={hasExternalId}
+                                onChange={(event) => handleDropChange(event.target.checked)}
+                                className="mt-1 h-4 w-4 accent-blue-500"
+                            />
+                            <span>
+                                <span className="flex items-center gap-2 text-sm font-semibold text-blue-300">
+                                    Producto DROP
+                                    <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold uppercase">sin stock local</span>
+                                </span>
+                                <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                                    {hasExternalId
+                                        ? 'Activado automáticamente porque el producto tiene ID externo.'
+                                        : 'Añade o elimina la etiqueta drop en las palabras clave.'}
+                                </span>
+                            </span>
+                        </label>
+                        <div className={`grid grid-cols-2 gap-4 ${isDropProduct ? 'opacity-45' : ''}`}>
                             <div>
-                                <label className="mb-2 block text-sm font-medium text-slate-400">Stock actual</label>
+                                <label className="mb-2 block text-sm font-medium text-slate-400">{isDropProduct ? 'Stock no aplicable' : 'Stock actual'}</label>
                                 <input
                                     type="number"
                                     name="stockQuantity"
@@ -209,6 +252,7 @@ const ProductForm = () => {
                                     className="input font-mono"
                                     min="0"
                                     step="1"
+                                    disabled={isDropProduct}
                                 />
                             </div>
                             <div>
@@ -221,15 +265,16 @@ const ProductForm = () => {
                                     className="input font-mono"
                                     min="0"
                                     step="1"
+                                    disabled={isDropProduct}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {formData.status === 'AVAILABLE' && (formData.stockQuantity <= 0 || formData.sellPrice <= 0 || !formData.sku) && (
+                    {formData.status === 'AVAILABLE' && ((!isDropProduct && formData.stockQuantity <= 0) || formData.sellPrice <= 0 || !formData.sku) && (
                         <div className="mt-5 flex gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
                             <AlertTriangle size={18} className="mt-0.5 shrink-0" />
-                            Para publicar como disponible debes indicar SKU, precio de venta y al menos una unidad de stock.
+                            Para publicar como disponible debes indicar SKU, precio de venta{isDropProduct ? '.' : ' y al menos una unidad de stock.'}
                         </div>
                     )}
                 </Card>
