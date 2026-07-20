@@ -300,6 +300,9 @@ const Products = () => {
             <Table headers={['ID', 'Imagen', 'Producto', 'Estado', 'Precio', 'Stock', 'Categoría', 'Acciones']}>
                 {filteredProducts.map((product) => {
                     const imageUrl = productImages[product.id];
+                    const isDropProduct = Boolean(String(product.externalId || '').trim()) || String(product.keywords || '')
+                        .split(/[,;]/)
+                        .some(keyword => keyword.trim().toLowerCase() === 'drop');
 
                     return (
                         <tr key={product.id}>
@@ -323,7 +326,12 @@ const Products = () => {
                                 </div>
                             </td>
                             <td>
-                                <div className="font-medium text-zinc-200">{product.name}</div>
+                                <div className="flex items-center gap-2 font-medium text-zinc-200">
+                                    {product.name}
+                                    {isDropProduct && (
+                                        <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-blue-400">DROP</span>
+                                    )}
+                                </div>
                                 <div className="mt-1 font-mono text-[10px] uppercase tracking-wide text-zinc-600">{product.sku || 'SIN SKU'}</div>
                                 <div className="text-xs text-zinc-500 truncate w-56 mt-1">{product.details}</div>
                             </td>
@@ -355,6 +363,9 @@ const Products = () => {
                                 )}
                             </td>
                             <td>
+                                {isDropProduct ? (
+                                    <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-400">DROP</span>
+                                ) : (
                                 <div className="flex items-center gap-2">
                                     <span className={`font-mono text-base font-semibold ${
                                         (product.stockQuantity ?? 0) === 0
@@ -369,6 +380,7 @@ const Products = () => {
                                         <AlertTriangle size={14} className="text-amber-400" title="Stock bajo" />
                                     )}
                                 </div>
+                                )}
                             </td>
                             <td>
                                 <span className="px-2 py-1 rounded-full bg-zinc-800 text-xs text-zinc-400 border border-zinc-700">
