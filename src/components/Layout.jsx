@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Package, Tags, ShoppingCart, Truck, Settings, LogOut, Image } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, ShoppingCart, Truck, Settings, LogOut, Image, UserPlus } from 'lucide-react';
 
 const Sidebar = () => {
     const navItems = [
@@ -8,6 +8,7 @@ const Sidebar = () => {
         { icon: Package, label: 'Productos y stock', path: '/products' },
         { icon: Tags, label: 'Categorías', path: '/categories' },
         { icon: ShoppingCart, label: 'Pedidos', path: '/orders' },
+        { icon: UserPlus, label: 'Leads', path: '/leads' },
         { icon: Truck, label: 'Seguimiento', path: '/tracking' },
         { icon: Image, label: 'Banners', path: '/banners' },
         { icon: LayoutDashboard, label: 'Blog', path: '/blog' },

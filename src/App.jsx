@@ -6,6 +6,7 @@ import Products from './pages/Products';
 import ProductForm from './pages/ProductForm';
 import Categories from './pages/Categories';
 import Orders from './pages/Orders';
+import Leads from './pages/Leads';
 import Tracking from './pages/Tracking';
 import Settings from './pages/Settings';
 import Banners from './pages/Banners';
@@ -21,6 +22,7 @@ function App() {
         <Route path="products/edit/:id" element={<ProductForm />} />
         <Route path="categories" element={<Categories />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="leads" element={<Leads />} />
         <Route path="tracking" element={<Tracking />} />
         <Route path="banners" element={<Banners />} />
         <Route path="blog" element={<Blog />} />
