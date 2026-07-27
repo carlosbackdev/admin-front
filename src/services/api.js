@@ -45,6 +45,10 @@ export const ordersApi = {
     delete: (id) => api.delete(`/orders/admin/${id}`),
 };
 
+export const leadsApi = {
+    getAll: () => api.get('/leads/admin'),
+};
+
 export const trackingApi = {
     getUpdate: (orderId) => api.post(`/track/track-udpate/${orderId}`),
     getOrder: (orderId) => api.get(`/track/track-order/${orderId}`),
