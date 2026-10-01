@@ -32,6 +32,7 @@ export const productsApi = {
     getPrimaryImage: (productId) => api.post(`/products-images/get-image/home/${productId}`),
     addImage: (productId, imageUrl) => api.post(`/products-images/admin/${productId}/images`, { imageUrl }),
     selectPrimaryImage: (productId, imageId) => api.post(`/products-images/admin/${productId}/images/${imageId}/primary`),
+    deleteImage: (productId, imageId) => api.delete(`/products-images/admin/${productId}/images/${imageId}`),
     setPrimaryImage: (productId, imageUrl) => api.post(`/products-images/admin/${productId}/primary`, { imageUrl }),
 };
 
