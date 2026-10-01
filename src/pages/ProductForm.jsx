@@ -13,6 +13,12 @@ const PRODUCT_STATUSES = [
     { value: 'ARCHIVED', label: 'Archivado', help: 'Oculto para clientes.' },
 ];
 
+const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+const discountFromPrices = (original, final) =>
+    original > 0 && final >= 0 && final < original
+        ? Math.round((1 - final / original) * 100)
+        : 0;
+
 const createInitialData = (isOnboardTemplate) => ({
     name: isOnboardTemplate ? 'Ordenador de a bordo MotoGear' : '',
     sku: isOnboardTemplate ? 'MG-OBD-KAWASAKI-V1' : '',
@@ -92,6 +98,7 @@ const ProductForm = () => {
             setFormData({
                 ...createInitialData(false),
                 ...productData,
+                discount: discountFromPrices(productData.originalPrice || 0, productData.sellPrice || 0),
                 status: productData.status || 'DRAFT',
                 stockQuantity: productData.stockQuantity ?? 0,
                 lowStockThreshold: productData.lowStockThreshold ?? 5,
@@ -143,15 +150,38 @@ const ProductForm = () => {
         }
     };
 
+    const handleDeleteImage = async (image) => {
+        if (!window.confirm('¿Eliminar esta imagen del producto?')) return;
+        setLoading(true);
+        try {
+            await productsApi.deleteImage(id, image.id);
+            const response = await productsApi.getImages(id);
+            setImages(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+            console.error('Failed to delete image', error);
+            alert('No se ha podido eliminar la imagen');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value, type } = e.target;
         const integerFields = ['stockQuantity', 'lowStockThreshold', 'discount', 'category'];
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'number'
+        setFormData(prev => {
+            const nextValue = type === 'number'
                 ? (integerFields.includes(name) ? parseInt(value, 10) || 0 : parseFloat(value) || 0)
-                : value
-        }));
+                : value;
+            const next = { ...prev, [name]: nextValue };
+            if (name === 'discount' && next.originalPrice > 0) {
+                next.sellPrice = roundMoney(next.originalPrice * (1 - next.discount / 100));
+            } else if (name === 'originalPrice' && next.discount > 0) {
+                next.sellPrice = roundMoney(next.originalPrice * (1 - next.discount / 100));
+            } else if ((name === 'sellPrice' || name === 'originalPrice') && next.originalPrice > 0) {
+                next.discount = discountFromPrices(next.originalPrice, next.sellPrice);
+            }
+            return next;
+        });
     };
 
     const handleDropChange = (enabled) => {
@@ -168,6 +198,10 @@ const ProductForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (formData.discount > 0 && formData.originalPrice <= 0) {
+            alert('Indica el precio anterior para calcular el descuento.');
+            return;
+        }
         setLoading(true);
         let productSaved = false;
         try {
@@ -438,6 +472,7 @@ const ProductForm = () => {
                                             ) : (
                                                 <button type="button" disabled={loading} onClick={() => handleSelectPrimary(image.id)} className="text-xs text-blue-300 hover:underline disabled:opacity-50">Hacer principal</button>
                                             )}
+                                            <button type="button" disabled={loading} onClick={() => handleDeleteImage(image)} className="ml-3 inline-flex items-center gap-1 text-xs text-red-400 hover:underline disabled:opacity-50"><X size={13} /> Eliminar</button>
                                         </div>
                                     </div>
                                 );
@@ -468,7 +503,7 @@ const ProductForm = () => {
                 {/* Pricing */}
                 <Card>
                     <h3 className="text-lg font-semibold mb-1 text-zinc-200">Precio</h3>
-                    <p className="mb-5 text-sm text-zinc-500">Puedes dejarlo a cero mientras el producto sea borrador o próximamente.</p>
+                    <p className="mb-5 text-sm text-zinc-500">Puedes dejarlo a cero mientras el producto sea borrador o próximamente. El importe que cobra la tienda es el precio de venta.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium mb-2 text-slate-400">Coste / precio base</label>
@@ -481,6 +516,7 @@ const ProductForm = () => {
                                 step="0.01"
                                 min="0"
                             />
+                            <p className="mt-1 text-xs text-zinc-500">(Coste interno; no se muestra al cliente.)</p>
                         </div>
 
                         <div>
@@ -494,6 +530,7 @@ const ProductForm = () => {
                                 step="0.01"
                                 min="0"
                             />
+                            <p className="mt-1 text-xs text-zinc-500">(Precio antes del descuento; aparece tachado en la tienda.)</p>
                         </div>
 
                         <div>
@@ -508,6 +545,7 @@ const ProductForm = () => {
                                 min="0"
                                 required={formData.status === 'AVAILABLE'}
                             />
+                            <p className="mt-1 text-xs text-zinc-500">(Precio final que paga el cliente, antes de los gastos de envío.)</p>
                         </div>
 
                         <div>
@@ -519,8 +557,22 @@ const ProductForm = () => {
                                 onChange={handleChange}
                                 className="input"
                                 min="0"
-                                max="100"
+                                max="99"
                             />
+                            <p className="mt-1 text-xs text-zinc-500">(Se calcula sobre el precio anterior y actualiza el precio de venta.)</p>
+                        </div>
+
+                        <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4 md:col-span-2">
+                            <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Vista previa para el cliente</p>
+                            <div className="mt-2 flex flex-wrap items-baseline gap-3">
+                                <strong className="text-2xl text-orange-400">{Number(formData.sellPrice || 0).toFixed(2)} {formData.currency}</strong>
+                                {formData.originalPrice > formData.sellPrice && formData.sellPrice > 0 && (
+                                    <>
+                                        <span className="text-sm text-zinc-500 line-through">{Number(formData.originalPrice).toFixed(2)} {formData.currency}</span>
+                                        <span className="text-sm font-semibold text-emerald-400">-{discountFromPrices(formData.originalPrice, formData.sellPrice)}% · Ahorras {roundMoney(formData.originalPrice - formData.sellPrice).toFixed(2)} {formData.currency}</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
 
                         <div>
