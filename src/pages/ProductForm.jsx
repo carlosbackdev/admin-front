@@ -15,8 +15,8 @@ const PRODUCT_STATUSES = [
 
 const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 const discountFromPrices = (original, final) =>
-    original > 0 && final >= 0 && final < original
-        ? Math.round((1 - final / original) * 100)
+    original > 0 && final > 0 && final < original
+        ? Math.max(1, Math.min(99, Math.round((1 - final / original) * 100)))
         : 0;
 
 const createInitialData = (isOnboardTemplate) => ({
