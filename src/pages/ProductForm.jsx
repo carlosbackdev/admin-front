@@ -114,6 +114,7 @@ const ProductForm = () => {
         if (!file) return;
         if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 10 * 1024 * 1024) {
             setImageError('Selecciona un JPG, PNG, WEBP o GIF de hasta 10 MB.');
+            setImageFile(null);
             event.target.value = '';
             return;
         }
