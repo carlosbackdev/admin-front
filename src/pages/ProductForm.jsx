@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { productsApi, categoriesApi, uploadApi, IMAGE_SERVER_URL } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Save, ArrowLeft, Cpu, AlertTriangle, Upload } from 'lucide-react';
+import { Save, ArrowLeft, Cpu, AlertTriangle, Upload, X, Star } from 'lucide-react';
 
 const PRODUCT_STATUSES = [
     { value: 'DRAFT', label: 'Borrador', help: 'Solo visible en el panel de administración.' },
@@ -53,20 +53,15 @@ const ProductForm = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
     const [savedProductId, setSavedProductId] = useState(id || null);
-    const [imageFile, setImageFile] = useState(null);
-    const [imagePreview, setImagePreview] = useState(null);
-    const [currentImage, setCurrentImage] = useState(null);
+    const [images, setImages] = useState([]);
+    const [pendingImages, setPendingImages] = useState([]);
     const [imageError, setImageError] = useState('');
+    const previewUrls = useRef(new Set());
 
     useEffect(() => {
-        if (!imageFile) {
-            setImagePreview(null);
-            return;
-        }
-        const url = URL.createObjectURL(imageFile);
-        setImagePreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [imageFile]);
+        const urls = previewUrls.current;
+        return () => urls.forEach(url => URL.revokeObjectURL(url));
+    }, []);
     const hasDropTag = String(formData.keywords || '')
         .split(/[,;]/)
         .some(keyword => keyword.trim().toLowerCase() === 'drop');
@@ -101,8 +96,8 @@ const ProductForm = () => {
                 stockQuantity: productData.stockQuantity ?? 0,
                 lowStockThreshold: productData.lowStockThreshold ?? 5,
             });
-            const imageResponse = await productsApi.getPrimaryImage(id);
-            setCurrentImage(imageResponse.data?.imageUrl || null);
+            const imageResponse = await productsApi.getImages(id);
+            setImages(Array.isArray(imageResponse.data) ? imageResponse.data : []);
         } catch (error) {
             console.error('Failed to load product', error);
             alert('No se han podido cargar los datos del producto');
@@ -110,16 +105,42 @@ const ProductForm = () => {
     };
 
     const handleImageChange = (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 10 * 1024 * 1024) {
-            setImageError('Selecciona un JPG, PNG, WEBP o GIF de hasta 10 MB.');
-            setImageFile(null);
-            event.target.value = '';
-            return;
+        const files = Array.from(event.target.files || []);
+        const validFiles = files.filter(file =>
+            ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
+            && file.size <= 10 * 1024 * 1024
+        );
+        setImageError(validFiles.length === files.length ? '' : 'Se omitieron archivos no válidos. Usa JPG, PNG, WEBP o GIF de hasta 10 MB cada uno.');
+        const selected = validFiles.map(file => {
+            const preview = URL.createObjectURL(file);
+            previewUrls.current.add(preview);
+            return { key: crypto.randomUUID(), file, preview };
+        });
+        setPendingImages(prev => [...prev, ...selected]);
+        event.target.value = '';
+    };
+
+    const removePendingImage = (key) => {
+        const item = pendingImages.find(image => image.key === key);
+        if (item) {
+            URL.revokeObjectURL(item.preview);
+            previewUrls.current.delete(item.preview);
         }
-        setImageError('');
-        setImageFile(file);
+        setPendingImages(prev => prev.filter(image => image.key !== key));
+    };
+
+    const handleSelectPrimary = async (imageId) => {
+        setLoading(true);
+        try {
+            await productsApi.selectPrimaryImage(id, imageId);
+            setImages(prev => prev.map(image => ({ ...image, isPrimary: image.id === imageId }))
+                .sort((a, b) => Number(Boolean(b.isPrimary)) - Number(Boolean(a.isPrimary)) || a.id - b.id));
+        } catch (error) {
+            console.error('Failed to select primary image', error);
+            alert('No se ha podido cambiar la imagen principal');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleChange = (e) => {
@@ -175,11 +196,11 @@ const ProductForm = () => {
                 setSavedProductId(productId);
             }
             productSaved = true;
-            if (imageFile) {
-                const upload = await uploadApi.uploadImage(imageFile);
-                await productsApi.setPrimaryImage(productId, upload.data.publicUrl);
-                setCurrentImage(upload.data.publicUrl);
-                setImageFile(null);
+            for (const item of pendingImages) {
+                const upload = await uploadApi.uploadImage(item.file);
+                const response = await productsApi.addImage(productId, upload.data.publicUrl);
+                setImages(prev => [...prev, response.data]);
+                removePendingImage(item.key);
             }
             alert(isEdit ? 'Producto actualizado correctamente' : 'Producto creado correctamente');
             navigate('/products');
@@ -401,25 +422,47 @@ const ProductForm = () => {
                 </Card>
 
                 <Card>
-                    <h3 className="mb-4 text-lg font-semibold text-zinc-200">Imagen del producto</h3>
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                        {(imagePreview || currentImage) && (
-                            <img
-                                src={imagePreview || (currentImage?.startsWith('http') ? currentImage : `${IMAGE_SERVER_URL}${currentImage}`)}
-                                alt="Vista previa del producto"
-                                className="h-36 w-36 rounded-lg border border-zinc-700 bg-zinc-800 object-contain"
-                            />
-                        )}
-                        <div>
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
-                                <Upload size={18} /> {currentImage ? 'Cambiar imagen principal' : 'Seleccionar imagen'}
-                                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} className="sr-only" />
-                            </label>
-                            <p className="mt-2 text-xs text-zinc-500">JPG, PNG, WEBP o GIF, hasta 10 MB. Se subirá al guardar el producto.</p>
-                            {imageFile && <p className="mt-2 text-sm text-zinc-300">{imageFile.name}</p>}
-                            {imageError && <p role="alert" className="mt-2 text-sm text-red-400">{imageError}</p>}
+                    <h3 className="mb-1 text-lg font-semibold text-zinc-200">Imágenes del producto</h3>
+                    <p className="mb-4 text-sm text-zinc-500">Puedes añadir tantas imágenes como quieras. La principal se muestra primero en la tienda; añadir fotos no la cambia.</p>
+                    {images.length > 0 && (
+                        <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                            {images.map((image, index) => {
+                                const isPrimary = image.isPrimary || (!images.some(item => item.isPrimary) && index === 0);
+                                const src = image.imageUrl.startsWith('http') ? image.imageUrl : `${IMAGE_SERVER_URL}${image.imageUrl}`;
+                                return (
+                                    <div key={image.id} className="overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800">
+                                        <img src={src} alt={`Imagen ${index + 1} del producto`} className="h-32 w-full object-contain" />
+                                        <div className="p-2 text-center">
+                                            {isPrimary ? (
+                                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-400"><Star size={14} /> Principal</span>
+                                            ) : (
+                                                <button type="button" disabled={loading} onClick={() => handleSelectPrimary(image.id)} className="text-xs text-blue-300 hover:underline disabled:opacity-50">Hacer principal</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    </div>
+                    )}
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
+                        <Upload size={18} /> Añadir imágenes
+                        <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} className="sr-only" disabled={loading} />
+                    </label>
+                    <p className="mt-2 text-xs text-zinc-500">JPG, PNG, WEBP o GIF, hasta 10 MB por imagen. Se subirán al guardar el producto.</p>
+                    {imageError && <p role="alert" className="mt-2 text-sm text-red-400">{imageError}</p>}
+                    {pendingImages.length > 0 && (
+                        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                            {pendingImages.map(item => (
+                                <div key={item.key} className="overflow-hidden rounded-lg border border-dashed border-blue-500/50 bg-zinc-800">
+                                    <img src={item.preview} alt={item.file.name} className="h-32 w-full object-contain" />
+                                    <div className="flex items-center justify-between gap-2 p-2">
+                                        <span className="truncate text-xs text-zinc-300" title={item.file.name}>{item.file.name}</span>
+                                        <button type="button" disabled={loading} onClick={() => removePendingImage(item.key)} aria-label={`Quitar ${item.file.name}`} className="text-zinc-400 hover:text-red-400 disabled:opacity-50"><X size={16} /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </Card>
 
                 {/* Pricing */}
