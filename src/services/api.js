@@ -30,6 +30,8 @@ export const productsApi = {
     scrapeUpdate: () => api.post('/products/admin/scripting-update'),
     getImages: (productId) => api.post(`/products-images/get-image/${productId}`),
     getPrimaryImage: (productId) => api.post(`/products-images/get-image/home/${productId}`),
+    addImage: (productId, imageUrl) => api.post(`/products-images/admin/${productId}/images`, { imageUrl }),
+    selectPrimaryImage: (productId, imageId) => api.post(`/products-images/admin/${productId}/images/${imageId}/primary`),
     setPrimaryImage: (productId, imageUrl) => api.post(`/products-images/admin/${productId}/primary`, { imageUrl }),
 };
 
