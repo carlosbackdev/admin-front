@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { productsApi, categoriesApi } from '../services/api';
+import { productsApi, categoriesApi, uploadApi, IMAGE_SERVER_URL } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Save, ArrowLeft, Cpu, AlertTriangle } from 'lucide-react';
+import { Save, ArrowLeft, Cpu, AlertTriangle, Upload } from 'lucide-react';
 
 const PRODUCT_STATUSES = [
     { value: 'DRAFT', label: 'Borrador', help: 'Solo visible en el panel de administración.' },
@@ -52,6 +52,21 @@ const ProductForm = () => {
 
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [savedProductId, setSavedProductId] = useState(id || null);
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [currentImage, setCurrentImage] = useState(null);
+    const [imageError, setImageError] = useState('');
+
+    useEffect(() => {
+        if (!imageFile) {
+            setImagePreview(null);
+            return;
+        }
+        const url = URL.createObjectURL(imageFile);
+        setImagePreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [imageFile]);
     const hasDropTag = String(formData.keywords || '')
         .split(/[,;]/)
         .some(keyword => keyword.trim().toLowerCase() === 'drop');
@@ -86,10 +101,24 @@ const ProductForm = () => {
                 stockQuantity: productData.stockQuantity ?? 0,
                 lowStockThreshold: productData.lowStockThreshold ?? 5,
             });
+            const imageResponse = await productsApi.getPrimaryImage(id);
+            setCurrentImage(imageResponse.data?.imageUrl || null);
         } catch (error) {
             console.error('Failed to load product', error);
             alert('No se han podido cargar los datos del producto');
         }
+    };
+
+    const handleImageChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+            setImageError('Selecciona un JPG, PNG, WEBP o GIF de hasta 10 MB.');
+            event.target.value = '';
+            return;
+        }
+        setImageError('');
+        setImageFile(file);
     };
 
     const handleChange = (e) => {
@@ -118,6 +147,7 @@ const ProductForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        let productSaved = false;
         try {
             const submitData = { ...formData };
             if (String(submitData.externalId || '').trim() && !String(submitData.keywords || '')
@@ -135,18 +165,27 @@ const ProductForm = () => {
             submitData.deliveryMinDate = null;
             submitData.deliveryMaxDate = null;
 
-            if (isEdit) {
-                await productsApi.update({ ...submitData, id: parseInt(id) });
-                alert('Producto actualizado correctamente');
+            let productId = savedProductId;
+            if (productId) {
+                await productsApi.update({ ...submitData, id: Number(productId) });
             } else {
-                await productsApi.create(submitData);
-                alert('Producto creado correctamente');
+                const response = await productsApi.create(submitData);
+                productId = response.data.id;
+                setSavedProductId(productId);
             }
+            productSaved = true;
+            if (imageFile) {
+                const upload = await uploadApi.uploadImage(imageFile);
+                await productsApi.setPrimaryImage(productId, upload.data.publicUrl);
+                setCurrentImage(upload.data.publicUrl);
+                setImageFile(null);
+            }
+            alert(isEdit ? 'Producto actualizado correctamente' : 'Producto creado correctamente');
             navigate('/products');
         } catch (error) {
             console.error('Failed to save product', error);
-            const message = error.response?.data?.detail || error.response?.data?.message || 'No se ha podido guardar el producto';
-            alert(message);
+            const message = error.response?.data?.detail || error.response?.data?.message || error.message || 'No se ha podido guardar el producto';
+            alert(productSaved ? `El producto se ha guardado, pero no se ha podido completar la imagen: ${message}. Puedes volver a intentarlo.` : message);
         } finally {
             setLoading(false);
         }
@@ -356,6 +395,28 @@ const ProductForm = () => {
                                 className="input"
                                 placeholder="Opcional"
                             />
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <h3 className="mb-4 text-lg font-semibold text-zinc-200">Imagen del producto</h3>
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                        {(imagePreview || currentImage) && (
+                            <img
+                                src={imagePreview || (currentImage?.startsWith('http') ? currentImage : `${IMAGE_SERVER_URL}${currentImage}`)}
+                                alt="Vista previa del producto"
+                                className="h-36 w-36 rounded-lg border border-zinc-700 bg-zinc-800 object-contain"
+                            />
+                        )}
+                        <div>
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
+                                <Upload size={18} /> {currentImage ? 'Cambiar imagen principal' : 'Seleccionar imagen'}
+                                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageChange} className="sr-only" />
+                            </label>
+                            <p className="mt-2 text-xs text-zinc-500">JPG, PNG, WEBP o GIF, hasta 10 MB. Se subirá al guardar el producto.</p>
+                            {imageFile && <p className="mt-2 text-sm text-zinc-300">{imageFile.name}</p>}
+                            {imageError && <p role="alert" className="mt-2 text-sm text-red-400">{imageError}</p>}
                         </div>
                     </div>
                 </Card>
