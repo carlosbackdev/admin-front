@@ -30,6 +30,7 @@ export const productsApi = {
     scrapeUpdate: () => api.post('/products/admin/scripting-update'),
     getImages: (productId) => api.post(`/products-images/get-image/${productId}`),
     getPrimaryImage: (productId) => api.post(`/products-images/get-image/home/${productId}`),
+    setPrimaryImage: (productId, imageUrl) => api.post(`/products-images/admin/${productId}/primary`, { imageUrl }),
 };
 
 export const categoriesApi = {
@@ -92,7 +93,11 @@ export const uploadApi = {
             body: formData
         });
 
-        return response.json();
+        const result = await response.json();
+        if (!response.ok || !result.success || !result.data?.publicUrl) {
+            throw new Error(result.message || 'No se ha podido subir la imagen');
+        }
+        return result;
     }
 };
 
